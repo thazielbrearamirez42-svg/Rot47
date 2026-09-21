@@ -9,7 +9,7 @@ def rot47_cipher(text_to_cypher):
             ciphered_text.append(chr(33 + ((ord_value + 14) % 94)))
         else:
             ciphered_text.append(text_to_cypher[character])
-    return ' '. join ciphered_text
+    return ''.join (ciphered_text)
 
 
 temp_text = input("Type the text you want to cipher: ")
