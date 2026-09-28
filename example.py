@@ -1,66 +1,58 @@
-"""
-Ejemplo de cifrado y descifrado con AES (modo CBC), usando pycryptodome.
-Version corregida y actualizada a Python 3.
-"""
+# Inspired from https://pythonprogramming.net/encryption-and-decryption-in-python-code-example-with-explanation/
+# PyCrypto docs available at https://www.dlitz.net/software/pycrypto/api/2.6/
 
 from Crypto.Cipher import AES
-from Crypto.Util.Padding import pad, unpad
-from Crypto.Random import get_random_bytes
-import base64
-
+import base64, os
 
 def generate_secret_key_for_AES_cipher():
-    # La clave AES debe tener 16, 24 o 32 bytes
-    AES_key_length = 16  # usar un valor mas grande en produccion (32 = AES-256)
-    secret_key = get_random_bytes(AES_key_length)
-    encoded_secret_key = base64.b64encode(secret_key)
-    return encoded_secret_key
+	# AES key length must be either 16, 24, or 32 bytes long
+	AES_key_length = 16 # use larger value in production
+	# generate a random secret key with the decided key length
+	# this secret key will be used to create AES cipher for encryption/decryption
+	secret_key = os.urandom(AES_key_length)
+	# encode this secret key for storing safely in database
+	encoded_secret_key = base64.b64encode(secret_key)
+	return encoded_secret_key
+
+def encrypt_message(private_msg, encoded_secret_key, padding_character):
+	# decode the encoded secret key
+	secret_key = base64.b64decode(encoded_secret_key)
+	# use the decoded secret key to create a AES cipher
+	cipher = AES.new(secret_key)
+	# pad the private_msg
+	# because AES encryption requires the length of the msg to be a multiple of 16
+	padded_private_msg = private_msg + (padding_character * ((16-len(private_msg)) % 16))
+	# use the cipher to encrypt the padded message
+	encrypted_msg = cipher.encrypt(padded_private_msg)
+	# encode the encrypted msg for storing safely in the database
+	encoded_encrypted_msg = base64.b64encode(encrypted_msg)
+	# return encoded encrypted message
+	return encoded_encrypted_msg
+
+def decrypt_message(encoded_encrypted_msg, encoded_secret_key, padding_character):
+	# decode the encoded encrypted message and encoded secret key
+	secret_key = base64.b64decode(encoded_secret_key)
+	encrypted_msg = base64.b64decode(encoded_encrypted_msg)
+	# use the decoded secret key to create a AES cipher
+	cipher = AES.new(secret_key)
+	# use the cipher to decrypt the encrypted message
+	decrypted_msg = cipher.decrypt(encrypted_msg)
+	# unpad the encrypted message
+	unpadded_private_msg = decrypted_msg.rstrip(padding_character)
+	# return a decrypted original private message
+	return unpadded_private_msg
 
 
-def encrypt_message(private_msg, encoded_secret_key):
-    secret_key = base64.b64decode(encoded_secret_key)
-
-    # Modo CBC requiere un IV (vector de inicializacion) aleatorio
-    cipher = AES.new(secret_key, AES.MODE_CBC)
-
-    # Convertimos el mensaje a bytes y lo rellenamos (padding automatico)
-    padded_msg = pad(private_msg.encode("utf-8"), AES.block_size)
-    encrypted_msg = cipher.encrypt(padded_msg)
-
-    # Guardamos el IV junto con el mensaje cifrado (se necesita para descifrar)
-    encoded_iv = base64.b64encode(cipher.iv)
-    encoded_encrypted_msg = base64.b64encode(encrypted_msg)
-
-    return encoded_encrypted_msg, encoded_iv
+####### BEGIN HERE #######
 
 
-def decrypt_message(encoded_encrypted_msg, encoded_secret_key, encoded_iv):
-    secret_key = base64.b64decode(encoded_secret_key)
-    encrypted_msg = base64.b64decode(encoded_encrypted_msg)
-    iv = base64.b64decode(encoded_iv)
-
-    cipher = AES.new(secret_key, AES.MODE_CBC, iv=iv)
-
-    decrypted_padded_msg = cipher.decrypt(encrypted_msg)
-    decrypted_msg = unpad(decrypted_padded_msg, AES.block_size)
-
-    return decrypted_msg.decode("utf-8")
-
-
-####### INICIO #######
-
-private_msg = (
-    "Lorem ipsum dolor sit amet, malis recteque posidonium ea sit, "
-    "te vis meliore verterem. Duis movet comprehensam eam ex, te mea "
-    "possim luptatum gloriatur. Modus summo epicuri eu nec. "
-    "Ex placerat complectitur eos."
-)
+private_msg = "32325456"
+padding_character = "{"
 
 secret_key = generate_secret_key_for_AES_cipher()
-encrypted_msg, iv = encrypt_message(private_msg, secret_key)
-decrypted_msg = decrypt_message(encrypted_msg, secret_key, iv)
+encrypted_msg = encrypt_message(private_msg, secret_key, padding_character)
+decrypted_msg = decrypt_message(encrypted_msg, secret_key, padding_character)
 
-print(f"Secret Key: {secret_key} - ({len(secret_key)})")
-print(f"IV: {iv} - ({len(iv)})")
-print(f"Encrypted Msg: {encrypted_msg} - ({len(encrypted_msg)})")
-print(f"Decrypted Msg: {decrypted_msg} - ({len(decrypted_msg)})")
+print("   Secret Key: %s - (%d)" % (secret_key, len(secret_key)))
+print("Encrypted Msg: %s - (%d)" % (encrypted_msg, len(encrypted_msg)))
+print("Decrypted Msg: %s - (%d)" % (decrypted_msg, len(decrypted_msg)))
